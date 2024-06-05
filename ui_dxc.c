@@ -7,11 +7,9 @@
 #include <ShellScalingApi.h> // SetProcessDpiAwareness
 #pragma warning(pop)
 
-#include "vigil.h"
-#include "clock.h"
 #include "ui_direct_draw.h"
 #include "ui_direct_Write.h"
-#include "colors.h"
+#include "ui_colors.h"
 
 // Silence "Someone Else Problems" when compiled with /Wall Warnings All:
 #pragma warning(push)
@@ -19,6 +17,9 @@
 #include <d3d11_4.h>
 #include <dxgi1_6.h>
 #pragma warning(pop)
+
+#include "vigil.h"
+#include "clock.h"
 
 #define null ((void*)0)
 #define countof(a) (sizeof(a) / sizeof((a)[0]))
@@ -31,7 +32,16 @@ static bool translucent = false;
 
 static NONCLIENTMETRICSW ui_app_ncm = { sizeof(NONCLIENTMETRICSW) };
 
-static double dpi;
+typedef struct ui_dpi_t {
+    int32_t window;
+    int32_t system;
+    int32_t monitor_effective;
+    int32_t monitor_angular;
+    int32_t monitor_raw;
+} ui_dpi_t;
+
+static ui_dpi_t dpi;
+
 static HFONT font;
 
 static ID3D11Debug* d3d_debug;
@@ -56,32 +66,91 @@ static void release(void* *p) {
     }
 }
 
+static void ui_app_update_monitor_dpi(HMONITOR monitor) {
+    for (int32_t mtd = MDT_EFFECTIVE_DPI; mtd <= MDT_RAW_DPI; mtd++) {
+        uint32_t dpi_x = 0;
+        uint32_t dpi_y = 0;
+        // GetDpiForMonitor() may return ERROR_GEN_FAILURE 0x8007001F when
+        // system wakes up from sleep:
+        // ""A device attached to the system is not functioning."
+        // docs say:
+        // "May be used to indicate that the device has stopped responding
+        // or a general failure has occurred on the device.
+        // The device may need to be manually reset."
+        int32_t r = GetDpiForMonitor(monitor, (MONITOR_DPI_TYPE)mtd, &dpi_x, &dpi_y);
+        if (r != 0) {
+            Sleep(33); // and retry:
+            r = GetDpiForMonitor(monitor, (MONITOR_DPI_TYPE)mtd, &dpi_x, &dpi_y);
+        }
+        if (r == 0) {
+            const char* names[] = {"EFFECTIVE_DPI", "ANGULAR_DPI","RAW_DPI"};
+            traceln("%s %d %d", names[mtd], dpi_x, dpi_y);
+            // EFFECTIVE_DPI 168 168 (with regard of user scaling)
+            // ANGULAR_DPI 247 248 (diagonal)
+            // RAW_DPI 283 284 (horizontal, vertical)
+            switch (mtd) {
+                case MDT_EFFECTIVE_DPI:
+                    dpi.monitor_effective = (int32_t)max(dpi_x, dpi_y); break;
+                case MDT_ANGULAR_DPI:
+                    dpi.monitor_angular = (int32_t)max(dpi_x, dpi_y); break;
+                case MDT_RAW_DPI:
+                    dpi.monitor_raw = (int32_t)max(dpi_x, dpi_y); break;
+                default: swear(false);
+            }
+        }
+    }
+}
+
+static void update_dpi(HWND wnd) {
+    dpi.window = (int32_t)GetDpiForWindow(wnd);
+    dpi.system = (int32_t)GetDpiForSystem();
+    RECT wrc;
+    swear(GetWindowRect(wnd, &wrc));
+    HMONITOR monitor = MonitorFromRect(&wrc, MONITOR_DEFAULTTONEAREST);
+    swear(monitor != null);
+    ui_app_update_monitor_dpi(monitor);
+    traceln("dpi .window: %d .system: %d "
+            ".monitor: effective %d angular %d raw %d",
+            dpi.window, dpi.system,
+            dpi.monitor_effective, dpi.monitor_angular, dpi.monitor_raw);
+}
+
 static float pt2dip(double pt) {
     return (float)(pt * 96.0 / 72.0);
 }
 
 static float px2pt(double x) {
-    return (float)(x * 72.0 / dpi);
+    return (float)(x * 72.0 / dpi.window);
 }
 
 static float px2dip(double x) {
-    return (float)(x * 96.0 / dpi);
+    return (float)(x * 96.0 / dpi.window);
 }
 
 static float dip2px(double x) {
-    return (float)(x * dpi / 96.0);
+    return (float)(x * dpi.window / 96.0);
+}
+
+static inline D2D1_COLOR_F d2d1_color_f(uint32_t bgra) {
+    static_assert(sizeof(ui_colorf_t) == sizeof(D2D1_COLOR_F), "size mismatch");
+    static_assert(offsetof(ui_colorf_t, r) == offsetof(D2D1_COLOR_F, r), "mismatch");
+    static_assert(offsetof(ui_colorf_t, g) == offsetof(D2D1_COLOR_F, g), "mismatch");
+    static_assert(offsetof(ui_colorf_t, b) == offsetof(D2D1_COLOR_F, b), "mismatch");
+    static_assert(offsetof(ui_colorf_t, a) == offsetof(D2D1_COLOR_F, a), "mismatch");
+    ui_colorf_t f = ui_colors.f(bgra);
+    return *(D2D1_COLOR_F*)&f;
 }
 
 static void create_brushes(void) {
     const D2D1_BRUSH_PROPERTIES* brush_properties = null;
-    D2D1_COLOR_F black  = color_f(Black);
-    D2D1_COLOR_F orange = color_f(Orange);
-    D2D1_COLOR_F green  = color_f(Green);
-    D2D1_COLOR_F red    = color_f(Red);
-    D2D1_COLOR_F white  = color_f(White);
+    D2D1_COLOR_F black  = d2d1_color_f(ui_colors.bgra.black);
+    D2D1_COLOR_F orange = d2d1_color_f(ui_colors.bgra.orange);
+    D2D1_COLOR_F green  = d2d1_color_f(ui_colors.bgra.green);
+    D2D1_COLOR_F red    = d2d1_color_f(ui_colors.bgra.red);
+    D2D1_COLOR_F white  = d2d1_color_f(ui_colors.bgra.white);
 #ifndef DEBUG
     double t = clock_seconds();
-    for (int i = 0; i < 1000 * 1000; i++) {
+    for (int i = 0; i < 1000 * 1000; i++) { // min 122ns ~ malloc() time
         call(render_target, CreateSolidColorBrush, &black,  brush_properties, &brush_black);
         release(&brush_black);
     }
@@ -95,6 +164,14 @@ static void create_brushes(void) {
     call(render_target, CreateSolidColorBrush, &orange, brush_properties, &brush_orange);
     call(render_target, CreateSolidColorBrush, &green,  brush_properties, &brush_green);
     call(render_target, CreateSolidColorBrush, &red,    brush_properties, &brush_red);
+#ifndef DEBUG
+    t = clock_seconds();
+    for (int i = 0; i < 1000 * 1000; i++) { // 38ns
+        void_call(brush_black, SetColor, &black);
+    }
+    traceln("CreateSolidColorBrush.SetColor): %.0fns (nanoseconds)",
+            (clock_seconds() - t) * 1000.0);
+#endif
 }
 
 static void create_text_format(void) {
@@ -104,7 +181,7 @@ static void create_text_format(void) {
 //          h, pt, pt2dip(pt), dip2px(pt2dip(pt)));
 #ifndef DEBUG
     double t = clock_seconds();
-    for (int i = 0; i < 1000 * 1000; i++) {
+    for (int i = 0; i < 1000 * 1000; i++) { // min 495ns ~ 3 x malloc()
         call(dwrite_factory, CreateTextFormat, L"Segoe UI", null,
             DWRITE_FONT_WEIGHT_REGULAR, DWRITE_FONT_STYLE_NORMAL,
             DWRITE_FONT_STRETCH_NORMAL, (float)pt2dip(pt),
@@ -123,6 +200,20 @@ static void create_text_format(void) {
         DWRITE_FONT_WEIGHT_REGULAR, DWRITE_FONT_STYLE_NORMAL,
         DWRITE_FONT_STRETCH_NORMAL, (float)pt2dip(pt),
         L"en-us", &segoe_format);
+    call(text_format, SetTrimming, &(DWRITE_TRIMMING){
+        .granularity = DWRITE_TRIMMING_GRANULARITY_CHARACTER,
+        .delimiter = 0,
+        .delimiterCount = 0
+    }, null);
+#ifndef DEBUG
+    t = clock_seconds();
+    for (int i = 0; i < 1000 * 1000; i++) { // min 29ns
+        call(text_format, SetWordWrapping, DWRITE_WORD_WRAPPING_NO_WRAP);
+    }
+    traceln("CreateTextFormat.SetWordWrapping(): %.0fns (nanoseconds)",
+            (clock_seconds() - t) * 1000.0);
+#endif
+
 }
 
 static void cleanup_render_target(void) {
@@ -141,13 +232,13 @@ static void create_render_target(HWND wnd) {
     RECT rc;
     GetClientRect(wnd, &rc);
     if (d2d_factory != null) {
-        dpi = (double)GetDpiForWindow(wnd);
+        update_dpi(wnd);
         D2D1_RENDER_TARGET_PROPERTIES ps = {
             .type = D2D1_RENDER_TARGET_TYPE_DEFAULT,
             .pixelFormat = { DXGI_FORMAT_B8G8R8A8_UNORM,
                              D2D1_ALPHA_MODE_PREMULTIPLIED },
-            .dpiX = (float)dpi,
-            .dpiY = (float)dpi,
+            .dpiX = (float)dpi.window,
+            .dpiY = (float)dpi.window,
             .usage = D2D1_RENDER_TARGET_USAGE_GDI_COMPATIBLE,
             .minLevel = D2D1_FEATURE_LEVEL_10
         };
@@ -253,6 +344,23 @@ static void draw_rectangle(const D2D1_RECT_F rect,
     release(&border_brush);
 }
 
+static void draw_filled_rect(const D2D1_RECT_F rect,
+        const D2D1_COLOR_F fill_color) {
+    ID2D1SolidColorBrush* fill_brush = null;
+    call(render_target, CreateSolidColorBrush, &fill_color, null, &fill_brush);
+    void_call(render_target, FillRectangle, &rect, (ID2D1Brush*)fill_brush);
+    release(&fill_brush);
+}
+
+static void draw_frame(const D2D1_RECT_F rect,
+        const D2D1_COLOR_F border_color,
+        float border_width_dip) {
+    ID2D1SolidColorBrush* border_brush = null;
+    call(render_target, CreateSolidColorBrush, &border_color, null, &border_brush);
+    void_call(render_target, DrawRectangle, &rect, (ID2D1Brush*)border_brush, border_width_dip, null);
+    release(&border_brush);
+}
+
 static void draw_line(const D2D1_POINT_2F from, const D2D1_POINT_2F to,
         float line_width_dip, const D2D1_COLOR_F line_color) {
     ID2D1SolidColorBrush* brush = null;
@@ -273,7 +381,7 @@ static void draw_polyline(int32_t count, const D2D1_POINT_2F points[],
 static bool render_dx(D2D1_SIZE_F size) {
     void_call(render_target, BeginDraw);
     void_call(render_target, SetTransform, &D2D1_MATRIX_3X2_F_IDENTITY);
-    D2D1_COLOR_F background = color_f(Black);
+    D2D1_COLOR_F background = d2d1_color_f(ui_colors.bgra.black);
     void_call(render_target, Clear, &background);
     float w4 = size.width / 4;
     float h4 = size.height / 4;
@@ -291,7 +399,8 @@ static bool render_dx(D2D1_SIZE_F size) {
     inner.right  -= w4 / 4;
     inner.top    += h4 / 4;
     inner.bottom -= h4 / 4;
-    draw_rectangle(inner, color_f(Green), border_width, color_f(Orange));
+    draw_rectangle(inner, d2d1_color_f(ui_colors.bgra.green),
+                   border_width, d2d1_color_f(ui_colors.bgra.orange));
     D2D1_RECT_F layout = inner;
     layout.left  += w4 / 32;
     layout.right -= w4 / 32;
@@ -315,7 +424,8 @@ static bool render_dx(D2D1_SIZE_F size) {
         {350.0f, 200.0f},
         {650.0f, 300.0f}
     };
-    draw_polyline(countof(points), points, border_width, color_f(Red));
+    draw_polyline(countof(points), points, border_width,
+                  d2d1_color_f(ui_colors.bgra.red));
     HRESULT hr = render_target->lpVtbl->EndDraw(render_target, null, null);
     if (hr != D2DERR_RECREATE_TARGET) { fif(hr); }
     return hr != D2DERR_RECREATE_TARGET;
@@ -343,7 +453,7 @@ static void render_gdi(HDC hdc, RECT rc) {
 
 static void paint(HWND wnd, HDC hdc) {
     SetLayout(hdc, LAYOUT_BITMAPORIENTATIONPRESERVED);
-    dpi = (double)GetDpiForWindow(wnd);
+    update_dpi(wnd);
     RECT rc;
     GetClientRect(wnd, &rc);
     if (render_target == null) { create_render_target(wnd); }
@@ -366,7 +476,7 @@ static void paint(HWND wnd, HDC hdc) {
 LRESULT CALLBACK window_proc(HWND wnd, UINT uMsg, WPARAM wParam, LPARAM lParam) {
     switch (uMsg) {
     case WM_SIZE:
-        dpi = (double)GetDpiForWindow(wnd);
+        update_dpi(wnd);
         if (wParam != SIZE_MINIMIZED && render_target != null) {
             int w = LOWORD(lParam);
             int h = HIWORD(lParam);
@@ -414,13 +524,12 @@ static void set_dpi_awareness(void) {
 static void ui_app_update_ncm(void) {
     // Only UTF-16 version supported SystemParametersInfoForDpi
     swear(SystemParametersInfoForDpi(SPI_GETNONCLIENTMETRICS,
-        sizeof(ui_app_ncm), &ui_app_ncm, 0, (DWORD)dpi));
+        sizeof(ui_app_ncm), &ui_app_ncm, 0, (DWORD)dpi.window));
     LOGFONTW lf = ui_app_ncm.lfMessageFont;
     traceln("lfMessageFont: %S", lf.lfFaceName);
-    traceln("Height : %d", lf.lfHeight);
+    traceln("Height : %dpx %.1fpt", lf.lfHeight, px2pt(lf.lfHeight));
     traceln("Weight : %d", lf.lfWeight);
     traceln("Quality: %d", lf.lfQuality);
-    traceln("dpi:     %d", (uint32_t)dpi);
 }
 
 int WINAPI WinMain(_In_ HINSTANCE instance, _In_opt_ HINSTANCE prev,
@@ -446,7 +555,7 @@ int WINAPI WinMain(_In_ HINSTANCE instance, _In_opt_ HINSTANCE prev,
     if (translucent) {
         SetLayeredWindowAttributes(wnd, 0x1E1E1E, 0xBF, LWA_COLORKEY|LWA_ALPHA);
     }
-    dpi = (double)GetDpiForWindow(wnd);
+    update_dpi(wnd);
     ui_app_update_ncm();
     LOGFONTW lf = ui_app_ncm.lfMessageFont;
     lf.lfQuality = PROOF_QUALITY;

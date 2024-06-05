@@ -11,11 +11,12 @@
     </ProjectConfiguration>
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="..\ui_colors.c" />
     <ClCompile Include="..\ui_dxc.c" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\clock.h" />
-    <ClInclude Include="..\colors.h" />
+    <ClInclude Include="..\ui_colors.h" />
     <ClInclude Include="..\ui_direct_draw.h" />
     <ClInclude Include="..\ui_direct_draw_defs.h" />
     <ClInclude Include="..\ui_direct_write.h" />
