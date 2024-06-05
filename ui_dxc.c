@@ -27,6 +27,8 @@
 #define call(ptr, method, ...) fif((ptr)->lpVtbl->method(ptr, ##__VA_ARGS__))
 #define void_call(ptr, method, ...) (ptr)->lpVtbl->method(ptr, ##__VA_ARGS__)
 
+static bool translucent = false;
+
 static NONCLIENTMETRICSW ui_app_ncm = { sizeof(NONCLIENTMETRICSW) };
 
 static double dpi;
@@ -200,15 +202,48 @@ static D2D1_SIZE_F wh_px2dip(int w, int h) {
 static bool render_dx(D2D1_SIZE_F size) {
     void_call(render_target, BeginDraw);
     void_call(render_target, SetTransform, &D2D1_MATRIX_3X2_F_IDENTITY);
-//  D2D1_COLOR_F background = color_f(White);
     D2D1_COLOR_F background = color_f(Black);
-//  D2D1_COLOR_F background = { .r = 1.0,  .g = 1.0, .b = 1.0, .a = 0.75};
     void_call(render_target, Clear, &background);
+
+    // Create gradient stops
+    D2D1_GRADIENT_STOP gradient_stops[] = {
+        { 0.0f, { 0.5f, 0.5f, 0.5f, 1.0f } },
+        { 1.0f, { 0.25f, 0.25f, 0.25f, 1.0f } }
+    };
+
+    // Create gradient stop collection
+    ID2D1GradientStopCollection* gradient_stop_collection = null;
+    call(render_target, CreateGradientStopCollection,
+         gradient_stops, countof(gradient_stops),
+         D2D1_GAMMA_1_0, D2D1_EXTEND_MODE_CLAMP,
+         &gradient_stop_collection);
+    ID2D1LinearGradientBrush* gradient_brush = null;
+    D2D1_LINEAR_GRADIENT_BRUSH_PROPERTIES gradient_brush_properties = {
+        .startPoint = { 150.0f, 200.0f },
+        .endPoint = { 650.0f, 300.0f }
+    };
+    call(render_target, CreateLinearGradientBrush,
+         &gradient_brush_properties, null,
+         gradient_stop_collection, &gradient_brush);
+    D2D1_ROUNDED_RECT rounded_rect = {
+        .rect = { 150.0f, 200.0f, 650.0f, 300.0f },
+        .radiusX = 20.0f,
+        .radiusY = 20.0f
+    };
+    void_call(render_target, FillRoundedRectangle, &rounded_rect,
+              (ID2D1Brush*)gradient_brush);
+    void_call(render_target, DrawRoundedRectangle, &rounded_rect,
+              (ID2D1Brush*)brush_black, 0.75f, null);
+    release(&gradient_brush);
+    release(&gradient_stop_collection);
+#if 0
     D2D1_RECT_F rect = (D2D1_RECT_F){150, 200, 650, 300};
     void_call(render_target, FillRectangle, &rect, (ID2D1Brush*)brush_orange);
     ID2D1StrokeStyle* stroke_style = null;
     void_call(render_target, DrawRectangle, &rect, (ID2D1Brush*)brush_green,
                                             2.0f, stroke_style);
+#endif
+
     D2D1_RECT_F layout = (D2D1_RECT_F){px2dip(10.0), px2dip(10.0), size.width, size.height};
     void_call(render_target, DrawText,
               L"Hello, World!", 13,
@@ -220,6 +255,7 @@ static bool render_dx(D2D1_SIZE_F size) {
               segoe_format, &layout, (ID2D1Brush*)brush_white,
               D2D1_DRAW_TEXT_OPTIONS_ENABLE_COLOR_FONT,
               DWRITE_MEASURING_MODE_NATURAL);
+#if 0
     D2D1_POINT_2F points[6] = {
         {150.0f, 200.0f},
         {200.0f, 250.0f},
@@ -233,6 +269,7 @@ static bool render_dx(D2D1_SIZE_F size) {
     void_call(render_target, DrawLine, points[2], points[3], (ID2D1Brush*)brush_red, 2.0f, stroke_style);
     void_call(render_target, DrawLine, points[3], points[4], (ID2D1Brush*)brush_red, 2.0f, stroke_style);
     void_call(render_target, DrawLine, points[4], points[5], (ID2D1Brush*)brush_red, 2.0f, stroke_style);
+#endif
     HRESULT hr = render_target->lpVtbl->EndDraw(render_target, null, null);
     if (hr != D2DERR_RECREATE_TARGET) { fif(hr); }
     return hr != D2DERR_RECREATE_TARGET;
@@ -352,12 +389,15 @@ int WINAPI WinMain(_In_ HINSTANCE instance, _In_opt_ HINSTANCE prev,
     AdjustWindowRect(&wr, WS_OVERLAPPEDWINDOW, FALSE);
     int w = wr.right - wr.left;
     int h = wr.bottom - wr.top;
-    HWND wnd = CreateWindowExA(WS_EX_COMPOSITED | WS_EX_LAYERED,
+    DWORD ex = translucent ? WS_EX_COMPOSITED | WS_EX_LAYERED : 0;
+    HWND wnd = CreateWindowExA(ex,
         "WindowClass", "Hello", WS_OVERLAPPEDWINDOW,
         -1, -1, w, h, null, null, instance, null);
+    if (translucent) {
+        SetLayeredWindowAttributes(wnd, 0x1E1E1E, 0xBF, LWA_COLORKEY|LWA_ALPHA);
+    }
     dpi = (double)GetDpiForWindow(wnd);
     ui_app_update_ncm();
-    SetLayeredWindowAttributes(wnd, 0x1E1E1E, 0xBF, LWA_COLORKEY|LWA_ALPHA);
     LOGFONTW lf = ui_app_ncm.lfMessageFont;
     lf.lfQuality = PROOF_QUALITY;
     font = CreateFontIndirectW(&lf);
