@@ -100,8 +100,8 @@ static void create_brushes(void) {
 static void create_text_format(void) {
     float h = (float)abs(ui_app_ncm.lfMessageFont.lfHeight);
     float pt = (float)px2pt(h);
-    traceln("MessageFont: %.1fpx %.1fpt %.1fdip %.1fpx",
-            h, pt, pt2dip(pt), dip2px(pt2dip(pt)));
+//  traceln("MessageFont: %.1fpx %.1fpt %.1fdip %.1fpx",
+//          h, pt, pt2dip(pt), dip2px(pt2dip(pt)));
 #ifndef DEBUG
     double t = clock_seconds();
     for (int i = 0; i < 1000 * 1000; i++) {
@@ -116,9 +116,10 @@ static void create_text_format(void) {
 #endif
     call(dwrite_factory, CreateTextFormat, L"Gabriola", null,
         DWRITE_FONT_WEIGHT_REGULAR, DWRITE_FONT_STYLE_NORMAL,
-        DWRITE_FONT_STRETCH_NORMAL, (float)pt2dip(72.0f),
+        DWRITE_FONT_STRETCH_NORMAL, (float)pt2dip(48.0f),
         L"en-us", &text_format);
-    call(dwrite_factory, CreateTextFormat, L"Segoe UI", null,
+    call(dwrite_factory, CreateTextFormat,
+        ui_app_ncm.lfMessageFont.lfFaceName, null,
         DWRITE_FONT_WEIGHT_REGULAR, DWRITE_FONT_STYLE_NORMAL,
         DWRITE_FONT_STRETCH_NORMAL, (float)pt2dip(pt),
         L"en-us", &segoe_format);
@@ -199,64 +200,115 @@ static D2D1_SIZE_F wh_px2dip(int w, int h) {
     return size;
 }
 
-static bool render_dx(D2D1_SIZE_F size) {
-    void_call(render_target, BeginDraw);
-    void_call(render_target, SetTransform, &D2D1_MATRIX_3X2_F_IDENTITY);
-    D2D1_COLOR_F background = color_f(Black);
-    void_call(render_target, Clear, &background);
-
-    // Create gradient stops
+static void draw_rounded_gradient_filled_rectangle(D2D1_RECT_F rect,
+        D2D1_COLOR_F color_border,
+        float border_width_dip,
+        float corner_radius_dip,
+        D2D1_COLOR_F color_top, D2D1_COLOR_F color_bottom) {
     D2D1_GRADIENT_STOP gradient_stops[] = {
-        { 0.0f, { 0.5f, 0.5f, 0.5f, 1.0f } },
-        { 1.0f, { 0.25f, 0.25f, 0.25f, 1.0f } }
+        { 0.0f, color_top },
+        { 1.0f, color_bottom }
     };
-
-    // Create gradient stop collection
     ID2D1GradientStopCollection* gradient_stop_collection = null;
     call(render_target, CreateGradientStopCollection,
          gradient_stops, countof(gradient_stops),
          D2D1_GAMMA_1_0, D2D1_EXTEND_MODE_CLAMP,
          &gradient_stop_collection);
-    ID2D1LinearGradientBrush* gradient_brush = null;
     D2D1_LINEAR_GRADIENT_BRUSH_PROPERTIES gradient_brush_properties = {
-        .startPoint = { 150.0f, 200.0f },
-        .endPoint = { 650.0f, 300.0f }
+        .startPoint = { rect.left, rect.top },
+        .endPoint = { rect.left, rect.bottom }
     };
+    ID2D1LinearGradientBrush* gradient_brush = null;
     call(render_target, CreateLinearGradientBrush,
          &gradient_brush_properties, null,
          gradient_stop_collection, &gradient_brush);
     D2D1_ROUNDED_RECT rounded_rect = {
-        .rect = { 150.0f, 200.0f, 650.0f, 300.0f },
-        .radiusX = 20.0f,
-        .radiusY = 20.0f
+        .rect = rect,
+        .radiusX = corner_radius_dip,
+        .radiusY = corner_radius_dip
     };
+    const D2D1_BRUSH_PROPERTIES* brush_properties = null;
+    ID2D1SolidColorBrush* border_brush = null;
+    call(render_target, CreateSolidColorBrush, &color_border,
+            brush_properties, &border_brush);
     void_call(render_target, FillRoundedRectangle, &rounded_rect,
               (ID2D1Brush*)gradient_brush);
     void_call(render_target, DrawRoundedRectangle, &rounded_rect,
-              (ID2D1Brush*)brush_black, 0.75f, null);
+              (ID2D1Brush*)border_brush, border_width_dip, null);
+    release(&border_brush);
     release(&gradient_brush);
     release(&gradient_stop_collection);
-#if 0
-    D2D1_RECT_F rect = (D2D1_RECT_F){150, 200, 650, 300};
-    void_call(render_target, FillRectangle, &rect, (ID2D1Brush*)brush_orange);
-    ID2D1StrokeStyle* stroke_style = null;
-    void_call(render_target, DrawRectangle, &rect, (ID2D1Brush*)brush_green,
-                                            2.0f, stroke_style);
-#endif
+}
 
-    D2D1_RECT_F layout = (D2D1_RECT_F){px2dip(10.0), px2dip(10.0), size.width, size.height};
+static void draw_rectangle(D2D1_RECT_F rect,
+        D2D1_COLOR_F border_color,
+        float border_width_dip,
+        D2D1_COLOR_F fill_color) {
+    ID2D1SolidColorBrush* fill_brush = null;
+    call(render_target, CreateSolidColorBrush, &fill_color, null, &fill_brush);
+    ID2D1SolidColorBrush* border_brush = null;
+    call(render_target, CreateSolidColorBrush, &border_color, null, &border_brush);
+    void_call(render_target, FillRectangle, &rect, (ID2D1Brush*)fill_brush);
+    void_call(render_target, DrawRectangle, &rect, (ID2D1Brush*)border_brush, border_width_dip, null);
+    release(&fill_brush);
+    release(&border_brush);
+}
+
+static void draw_line(D2D1_POINT_2F from, D2D1_POINT_2F to,
+        float line_width_dip, D2D1_COLOR_F line_color) {
+    ID2D1SolidColorBrush* brush = null;
+    const D2D1_BRUSH_PROPERTIES* brush_properties = null;
+    call(render_target, CreateSolidColorBrush, &line_color, brush_properties, &brush);
+    ID2D1StrokeStyle* stroke_style = null;
+    void_call(render_target, DrawLine, from, to, (ID2D1Brush*)brush, line_width_dip, stroke_style);
+    release(&brush);
+}
+
+static void draw_polyline(int32_t count, D2D1_POINT_2F points[],
+        float line_width_dip, D2D1_COLOR_F line_color) {
+    for (int32_t i = 0; i < count - 1; i++) {
+        draw_line(points[i], points[i + 1], line_width_dip, line_color);
+    }
+}
+
+static bool render_dx(D2D1_SIZE_F size) {
+    void_call(render_target, BeginDraw);
+    void_call(render_target, SetTransform, &D2D1_MATRIX_3X2_F_IDENTITY);
+    D2D1_COLOR_F background = color_f(Black);
+    void_call(render_target, Clear, &background);
+    float w4 = size.width / 4;
+    float h4 = size.height / 4;
+    const D2D1_RECT_F rect = { .left = w4, .top = h4,
+        .right = size.width - w4, .bottom = size.height - h4 };
+    D2D1_COLOR_F border_color = {0.75f, 0.75f, 0.75f, 1.0f};
+    const float border_width = 3.0f;
+    D2D1_COLOR_F top_color = {0.5f, 0.5f, 0.5f, 1.0f};
+    D2D1_COLOR_F bottom_color = {0.25f, 0.25f, 0.25f, 1.0f};
+    const float corner_radius = 20.0f;
+    draw_rounded_gradient_filled_rectangle(rect, border_color,
+        border_width, corner_radius, top_color, bottom_color);
+    D2D1_RECT_F inner = rect;
+    inner.left   += w4 / 4;
+    inner.right  -= w4 / 4;
+    inner.top    += h4 / 4;
+    inner.bottom -= h4 / 4;
+    draw_rectangle(inner, color_f(Green), border_width, color_f(Orange));
+    D2D1_RECT_F layout = inner;
+    layout.left  += w4 / 32;
+    layout.right -= w4 / 32;
     void_call(render_target, DrawText,
               L"Hello, World!", 13,
-              text_format, &layout, (ID2D1Brush*)brush_white,
+              text_format, &layout, (ID2D1Brush*)brush_black,
               D2D1_DRAW_TEXT_OPTIONS_ENABLE_COLOR_FONT,
               DWRITE_MEASURING_MODE_NATURAL);
+    layout = (D2D1_RECT_F){px2dip(10.0), px2dip(10.0),
+        size.width - px2dip(10.0), size.height - px2dip(10.0)};
     void_call(render_target, DrawText,
               L"Hello, World!\xD83E\xDDF8 (DirectWrite)", 29,
               segoe_format, &layout, (ID2D1Brush*)brush_white,
               D2D1_DRAW_TEXT_OPTIONS_ENABLE_COLOR_FONT,
               DWRITE_MEASURING_MODE_NATURAL);
-#if 0
-    D2D1_POINT_2F points[6] = {
+    const D2D1_POINT_2F points[6] = {
         {150.0f, 200.0f},
         {200.0f, 250.0f},
         {250.0f, 200.0f},
@@ -264,12 +316,7 @@ static bool render_dx(D2D1_SIZE_F size) {
         {350.0f, 200.0f},
         {650.0f, 300.0f}
     };
-    void_call(render_target, DrawLine, points[0], points[1], (ID2D1Brush*)brush_red, 2.0f, stroke_style);
-    void_call(render_target, DrawLine, points[1], points[2], (ID2D1Brush*)brush_red, 2.0f, stroke_style);
-    void_call(render_target, DrawLine, points[2], points[3], (ID2D1Brush*)brush_red, 2.0f, stroke_style);
-    void_call(render_target, DrawLine, points[3], points[4], (ID2D1Brush*)brush_red, 2.0f, stroke_style);
-    void_call(render_target, DrawLine, points[4], points[5], (ID2D1Brush*)brush_red, 2.0f, stroke_style);
-#endif
+    draw_polyline(countof(points), points, border_width, color_f(Red));
     HRESULT hr = render_target->lpVtbl->EndDraw(render_target, null, null);
     if (hr != D2DERR_RECREATE_TARGET) { fif(hr); }
     return hr != D2DERR_RECREATE_TARGET;
@@ -324,7 +371,7 @@ LRESULT CALLBACK window_proc(HWND wnd, UINT uMsg, WPARAM wParam, LPARAM lParam) 
         if (wParam != SIZE_MINIMIZED && render_target != null) {
             int w = LOWORD(lParam);
             int h = HIWORD(lParam);
-            printf("%dx%d", w, h);
+            traceln("%dx%d", w, h);
             cleanup_render_target();
         }
         return 0;
@@ -381,9 +428,13 @@ int WINAPI WinMain(_In_ HINSTANCE instance, _In_opt_ HINSTANCE prev,
                    _In_ char* cmd, _In_ int show_command) {
     (void)prev; (void)cmd;
     set_dpi_awareness();
-    WNDCLASSEXA wc = { sizeof(WNDCLASSEX), CS_HREDRAW | CS_VREDRAW,
-        window_proc, 0, 0, instance, null, LoadCursor(null, IDC_ARROW),
-        null, null, "WindowClass", null };
+    WNDCLASSEXA wc = { .cbSize = sizeof(WNDCLASSEX),
+        .style = CS_HREDRAW | CS_VREDRAW, .lpfnWndProc = window_proc,
+        .cbClsExtra= 0, .cbWndExtra = 0,
+        .hInstance = instance, .hIcon = null, .hCursor = LoadCursor(null, IDC_ARROW),
+        .hbrBackground = GetStockObject(BLACK_BRUSH),
+        .lpszMenuName = null, .lpszClassName = "WindowClass", .hIconSm = null
+    };
     RegisterClassExA(&wc);
     RECT wr = { 0, 0, 1500, 900 };
     AdjustWindowRect(&wr, WS_OVERLAPPEDWINDOW, FALSE);
