@@ -1,0 +1,25 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.3.32804.467
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "dx", "ui_dxc.vcxproj", "{4A21BE1F-678C-4733-A9F0-A7BFFFCF3CC2}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		debug|x64 = debug|x64
+		release|x64 = release|x64
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{4A21BE1F-678C-4733-A9F0-A7BFFFCF3CC2}.debug|x64.ActiveCfg = debug|x64
+		{4A21BE1F-678C-4733-A9F0-A7BFFFCF3CC2}.debug|x64.Build.0 = debug|x64
+		{4A21BE1F-678C-4733-A9F0-A7BFFFCF3CC2}.release|x64.ActiveCfg = release|x64
+		{4A21BE1F-678C-4733-A9F0-A7BFFFCF3CC2}.release|x64.Build.0 = release|x64
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = TRUE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {4903FF9C-ADBE-4753-BB20-C4EEE5D83493}
+	EndGlobalSection
+EndGlobal

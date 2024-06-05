@@ -1,0 +1,18 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <ClCompile Include="..\ui_dxc.c" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="..\vigil.h" />
+    <ClInclude Include="..\clock.h" />
+    <ClInclude Include="..\colors.h" />
+    <ClInclude Include="..\ui_direct_draw.h" />
+    <ClInclude Include="..\ui_direct_draw_defs.h" />
+    <ClInclude Include="..\ui_direct_write.h" />
+    <ClInclude Include="..\ui_direct_write_defs.h" />
+  </ItemGroup>
+  <ItemGroup>
+    <Xml Include="manifest.xml" />
+  </ItemGroup>
+</Project>
