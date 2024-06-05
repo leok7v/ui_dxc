@@ -27,6 +27,8 @@
 #define call(ptr, method, ...) fif((ptr)->lpVtbl->method(ptr, ##__VA_ARGS__))
 #define void_call(ptr, method, ...) (ptr)->lpVtbl->method(ptr, ##__VA_ARGS__)
 
+static NONCLIENTMETRICSW ui_app_ncm = { sizeof(NONCLIENTMETRICSW) };
+
 static double dpi;
 static HFONT font;
 
@@ -56,8 +58,16 @@ static float pt2dip(double pt) {
     return (float)(pt * 96.0 / 72.0);
 }
 
+static float px2pt(double x) {
+    return (float)(x * 72.0 / dpi);
+}
+
 static float px2dip(double x) {
     return (float)(x * 96.0 / dpi);
+}
+
+static float dip2px(double x) {
+    return (float)(x * dpi / 96.0);
 }
 
 static void create_brushes(void) {
@@ -86,14 +96,17 @@ static void create_brushes(void) {
 }
 
 static void create_text_format(void) {
-    float pt9  = pt2dip(9.0f);
-    float pt72 = pt2dip(72.0f);
+    float h = (float)abs(ui_app_ncm.lfMessageFont.lfHeight);
+    float pt = (float)px2pt(h);
+    traceln("MessageFont: %.1fpx %.1fpt %.1fdip %.1fpx",
+            h, pt, pt2dip(pt), dip2px(pt2dip(pt)));
 #ifndef DEBUG
     double t = clock_seconds();
     for (int i = 0; i < 1000 * 1000; i++) {
         call(dwrite_factory, CreateTextFormat, L"Segoe UI", null,
             DWRITE_FONT_WEIGHT_REGULAR, DWRITE_FONT_STYLE_NORMAL,
-            DWRITE_FONT_STRETCH_NORMAL, pt9, L"en-us", &segoe_format);
+            DWRITE_FONT_STRETCH_NORMAL, (float)pt2dip(pt),
+            L"en-us", &segoe_format);
         release(&segoe_format);
     }
     traceln("CreateTextFormat: %.0fns (nanoseconds)",
@@ -101,10 +114,12 @@ static void create_text_format(void) {
 #endif
     call(dwrite_factory, CreateTextFormat, L"Gabriola", null,
         DWRITE_FONT_WEIGHT_REGULAR, DWRITE_FONT_STYLE_NORMAL,
-        DWRITE_FONT_STRETCH_NORMAL, pt72, L"en-us", &text_format);
+        DWRITE_FONT_STRETCH_NORMAL, (float)pt2dip(72.0f),
+        L"en-us", &text_format);
     call(dwrite_factory, CreateTextFormat, L"Segoe UI", null,
         DWRITE_FONT_WEIGHT_REGULAR, DWRITE_FONT_STYLE_NORMAL,
-        DWRITE_FONT_STRETCH_NORMAL, pt9, L"en-us", &segoe_format);
+        DWRITE_FONT_STRETCH_NORMAL, (float)pt2dip(pt),
+        L"en-us", &segoe_format);
 }
 
 static void cleanup_render_target(void) {
@@ -195,12 +210,12 @@ static bool render_dx(D2D1_SIZE_F size) {
     void_call(render_target, DrawRectangle, &rect, (ID2D1Brush*)brush_green,
                                             2.0f, stroke_style);
     D2D1_RECT_F layout = (D2D1_RECT_F){px2dip(10.0), px2dip(10.0), size.width, size.height};
-    void_call(render_target, DrawText, 
+    void_call(render_target, DrawText,
               L"Hello, World!", 13,
               text_format, &layout, (ID2D1Brush*)brush_white,
               D2D1_DRAW_TEXT_OPTIONS_ENABLE_COLOR_FONT,
               DWRITE_MEASURING_MODE_NATURAL);
-    void_call(render_target, DrawText, 
+    void_call(render_target, DrawText,
               L"Hello, World!\xD83E\xDDF8 (DirectWrite)", 29,
               segoe_format, &layout, (ID2D1Brush*)brush_white,
               D2D1_DRAW_TEXT_OPTIONS_ENABLE_COLOR_FONT,
@@ -231,7 +246,7 @@ static void render_gdi(HDC hdc, RECT rc) {
     rc.left = 10;
     rc.top  = 60;
     HFONT f = (HFONT)SelectObject(hdc, font);
-    DrawTextA(hdc, "Hello, World! (Segoe UI)", 24, &rc,
+    DrawTextW(hdc, L"Hello, World!\xD83E\xDDF8 (GDI)", 21, &rc,
                 DT_LEFT | DT_SINGLELINE);
     rc.top += 60;
     SelectObject(hdc, GetStockObject(DEFAULT_GUI_FONT));
@@ -313,6 +328,18 @@ static void set_dpi_awareness(void) {
     swear(dpi_awareness_context_1 != dpi_awareness_context_2);
 }
 
+static void ui_app_update_ncm(void) {
+    // Only UTF-16 version supported SystemParametersInfoForDpi
+    swear(SystemParametersInfoForDpi(SPI_GETNONCLIENTMETRICS,
+        sizeof(ui_app_ncm), &ui_app_ncm, 0, (DWORD)dpi));
+    LOGFONTW lf = ui_app_ncm.lfMessageFont;
+    traceln("lfMessageFont: %S", lf.lfFaceName);
+    traceln("Height : %d", lf.lfHeight);
+    traceln("Weight : %d", lf.lfWeight);
+    traceln("Quality: %d", lf.lfQuality);
+    traceln("dpi:     %d", (uint32_t)dpi);
+}
+
 int WINAPI WinMain(_In_ HINSTANCE instance, _In_opt_ HINSTANCE prev,
                    _In_ char* cmd, _In_ int show_command) {
     (void)prev; (void)cmd;
@@ -321,7 +348,7 @@ int WINAPI WinMain(_In_ HINSTANCE instance, _In_opt_ HINSTANCE prev,
         window_proc, 0, 0, instance, null, LoadCursor(null, IDC_ARROW),
         null, null, "WindowClass", null };
     RegisterClassExA(&wc);
-    RECT wr = { 0, 0, 800, 600 };
+    RECT wr = { 0, 0, 1500, 900 };
     AdjustWindowRect(&wr, WS_OVERLAPPEDWINDOW, FALSE);
     int w = wr.right - wr.left;
     int h = wr.bottom - wr.top;
@@ -329,14 +356,11 @@ int WINAPI WinMain(_In_ HINSTANCE instance, _In_opt_ HINSTANCE prev,
         "WindowClass", "Hello", WS_OVERLAPPEDWINDOW,
         -1, -1, w, h, null, null, instance, null);
     dpi = (double)GetDpiForWindow(wnd);
+    ui_app_update_ncm();
     SetLayeredWindowAttributes(wnd, 0x1E1E1E, 0xBF, LWA_COLORKEY|LWA_ALPHA);
-    LOGFONTA lf = {
-        .lfHeight = 24 * 96 / 72,
-        .lfWeight = 400,
-        .lfQuality = ANTIALIASED_QUALITY
-    };
-    strncpy(lf.lfFaceName, "Segoe UI", countof(lf.lfFaceName) - 1);
-    font = CreateFontIndirectA(&lf);
+    LOGFONTW lf = ui_app_ncm.lfMessageFont;
+    lf.lfQuality = PROOF_QUALITY;
+    font = CreateFontIndirectW(&lf);
     init_d3d(wnd); // only needed for debugging
     init_d2d();
     ShowWindow(wnd, show_command);

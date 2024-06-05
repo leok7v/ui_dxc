@@ -1,6 +1,6 @@
 #ifndef vigil_h
 #define vigil_h // https://github.com/munificent/vigil
-// exports: trace_line_va() trace_line() traceln() swear() wrong() fatal_if_error() 
+// exports: trace_line_va() trace_line() traceln() swear() wrong() fatal_if_error()
 #include <stdbool.h>
 #include <stdint.h>
 #include <stdio.h>
@@ -8,7 +8,7 @@
 #include <windows.h>
 #include <winternl.h>
 #pragma warning(push)
-#pragma warning(disable: 4005) // macro redefinition
+#pragma warning(disable: 4005) // a lot of macro redefinitions
 #include <ntstatus.h>
 #pragma warning(pop)
 
@@ -26,7 +26,7 @@ extern "C" {
 #define null ((void*)0)
 #endif
 
-static void trace_line_va(const char* file, int32_t line, const char* func, 
+static void trace_line_va(const char* file, int32_t line, const char* func,
         const char* format, va_list args) {
     DWORD error = GetLastError();
     errno_t en = errno;
@@ -51,7 +51,7 @@ static void trace_line_va(const char* file, int32_t line, const char* func,
     SetLastError(error);
 }
 
-static void trace_line(const char* file, int32_t line, const char* func, 
+static void trace_line(const char* file, int32_t line, const char* func,
         const char* format, ...) {
     va_list args;
     va_start(args, format);
@@ -67,7 +67,7 @@ static const char* err2str(DWORD error) {
     DWORD flags = FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS;
     HMODULE module = null;
     HRESULT hr = (HRESULT)error;
-    if ((error & 0xC0000000U) == 0xC0000000U) { 
+    if ((error & 0xC0000000U) == 0xC0000000U) {
         // https://stackoverflow.com/questions/25566234/how-to-convert-specific-ntstatus-value-to-the-hresult
         static HMODULE ntdll; // RtlNtStatusToDosError implies linking to ntdll
         if (ntdll == null) { ntdll = GetModuleHandleA("ntdll.dll"); }
@@ -75,8 +75,8 @@ static const char* err2str(DWORD error) {
         module = ntdll;
         hr = HRESULT_FROM_WIN32(RtlNtStatusToDosError((NTSTATUS)error));
         flags |= FORMAT_MESSAGE_FROM_HMODULE;
-    } 
-    DWORD bytes = FormatMessageA(flags, module, error, 
+    }
+    DWORD bytes = FormatMessageA(flags, module, error,
                                  language_id, str, countof(str) - 1, null);
     while (bytes > 0 && str[bytes] < 0x20) { bytes--; } // '\r' '\n' '\t' etc
     str[bytes] = 0;
@@ -86,7 +86,7 @@ static const char* err2str(DWORD error) {
 static inline bool wrong(const char* call, const char* file, int32_t line,
         const char* func, const char* format, ...) {
     errno_t en = errno;
-    HRESULT error = HRESULT_FROM_WIN32(GetLastError()); 
+    HRESULT error = HRESULT_FROM_WIN32(GetLastError());
     DWORD   de = _doserrno;
     trace_line(file, line, func, "assertion: \"%s\" failed", call);
     if (format != null && format[0] != 0) {
@@ -98,13 +98,13 @@ static inline bool wrong(const char* call, const char* file, int32_t line,
     }
     // extra error information that may be useful for debugging:
     if (error != 0) {
-        trace_line(file, line, func, "GetLastError(): 0x%08X (%d) %s", 
+        trace_line(file, line, func, "GetLastError(): 0x%08X (%d) %s",
             error, error, err2str((DWORD)error));
     }
     if (en != 0) {
-        trace_line(file, line, func, "errno:          0x%08X (%d) %s", 
+        trace_line(file, line, func, "errno:          0x%08X (%d) %s",
             en, en, strerror(en));
-        trace_line(file, line, func, "doserrno:       0x%08X (%d) %s", 
+        trace_line(file, line, func, "doserrno:       0x%08X (%d) %s",
             de, de, err2str(de));
     }
     DebugBreak();
@@ -118,7 +118,7 @@ static inline bool wrong(const char* call, const char* file, int32_t line,
 // https://learn.microsoft.com/en-us/windows/win32/com/using-macros-for-error-handling
 
 #define fatal_if_error(hr, ...) swear(!IS_ERROR(hr), "" __VA_ARGS__)
- 
+
 #ifdef __cplusplus
 } // extern "C"
 #endif

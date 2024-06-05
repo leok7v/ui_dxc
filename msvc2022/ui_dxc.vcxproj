@@ -25,6 +25,9 @@
   <ItemGroup>
     <Xml Include="manifest.xml" />
   </ItemGroup>
+  <ItemGroup>
+    <None Include="..\README.md" />
+  </ItemGroup>
   <PropertyGroup Label="Globals">
     <ProjectGuid>{4A21BE1F-678C-4733-A9F0-A7BFFFCF3CC2}</ProjectGuid>
     <Keyword>Win32Proj</Keyword>
