@@ -200,11 +200,10 @@ static D2D1_SIZE_F wh_px2dip(int w, int h) {
     return size;
 }
 
-static void draw_rounded_gradient_filled_rectangle(D2D1_RECT_F rect,
-        D2D1_COLOR_F color_border,
-        float border_width_dip,
-        float corner_radius_dip,
-        D2D1_COLOR_F color_top, D2D1_COLOR_F color_bottom) {
+static void draw_rounded_gradient_filled_rectangle(const D2D1_RECT_F rect,
+        const D2D1_COLOR_F color_border,
+        float border_width_dip, float corner_radius_dip,
+        const D2D1_COLOR_F color_top, const D2D1_COLOR_F color_bottom) {
     D2D1_GRADIENT_STOP gradient_stops[] = {
         { 0.0f, color_top },
         { 1.0f, color_bottom }
@@ -240,10 +239,10 @@ static void draw_rounded_gradient_filled_rectangle(D2D1_RECT_F rect,
     release(&gradient_stop_collection);
 }
 
-static void draw_rectangle(D2D1_RECT_F rect,
-        D2D1_COLOR_F border_color,
+static void draw_rectangle(const D2D1_RECT_F rect,
+        const D2D1_COLOR_F border_color,
         float border_width_dip,
-        D2D1_COLOR_F fill_color) {
+        const D2D1_COLOR_F fill_color) {
     ID2D1SolidColorBrush* fill_brush = null;
     call(render_target, CreateSolidColorBrush, &fill_color, null, &fill_brush);
     ID2D1SolidColorBrush* border_brush = null;
@@ -254,8 +253,8 @@ static void draw_rectangle(D2D1_RECT_F rect,
     release(&border_brush);
 }
 
-static void draw_line(D2D1_POINT_2F from, D2D1_POINT_2F to,
-        float line_width_dip, D2D1_COLOR_F line_color) {
+static void draw_line(const D2D1_POINT_2F from, const D2D1_POINT_2F to,
+        float line_width_dip, const D2D1_COLOR_F line_color) {
     ID2D1SolidColorBrush* brush = null;
     const D2D1_BRUSH_PROPERTIES* brush_properties = null;
     call(render_target, CreateSolidColorBrush, &line_color, brush_properties, &brush);
@@ -264,7 +263,7 @@ static void draw_line(D2D1_POINT_2F from, D2D1_POINT_2F to,
     release(&brush);
 }
 
-static void draw_polyline(int32_t count, D2D1_POINT_2F points[],
+static void draw_polyline(int32_t count, const D2D1_POINT_2F points[],
         float line_width_dip, D2D1_COLOR_F line_color) {
     for (int32_t i = 0; i < count - 1; i++) {
         draw_line(points[i], points[i + 1], line_width_dip, line_color);
