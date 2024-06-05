@@ -13,8 +13,363 @@
 extern "C" {
 #endif
 
-#define DIRECT_WRITE_CALL_COM_METHOD(ptr, method, ...) \
-    (ptr)->lpVtbl->method(ptr, ##__VA_ARGS__)
+// IDWriteTextFormat capable of rendering text with a specific font, size,
+// and style.
+// Can only set text and paragraph alignment, trimming, line spacing,
+// tabstop, flow direction, and word wrapping.
+// CANNOT change size!
+
+// IDWriteTextLayout can layout and render text with a specific font, size,
+// and style changing size but the text is fixed in the time of creation.
+// IDWriteTextLayout can also render to GDI and other targets
+
+typedef struct IDWriteTextFormatVtbl {
+    HRESULT (STDMETHODCALLTYPE *QueryInterface)(
+        IDWriteTextFormat* This,
+        REFIID riid,
+        void** ppvObject);
+    ULONG (STDMETHODCALLTYPE *AddRef)(IDWriteTextFormat* This);
+    ULONG (STDMETHODCALLTYPE *Release)(IDWriteTextFormat* This);
+    HRESULT (STDMETHODCALLTYPE *SetTextAlignment)(
+        IDWriteTextFormat* This,
+        DWRITE_TEXT_ALIGNMENT textAlignment);
+    HRESULT (STDMETHODCALLTYPE *SetParagraphAlignment)(
+        IDWriteTextFormat* This,
+        DWRITE_PARAGRAPH_ALIGNMENT paragraphAlignment);
+    HRESULT (STDMETHODCALLTYPE *SetWordWrapping)(
+        IDWriteTextFormat* This,
+        DWRITE_WORD_WRAPPING wordWrapping);
+    HRESULT (STDMETHODCALLTYPE *SetReadingDirection)(
+        IDWriteTextFormat* This,
+        DWRITE_READING_DIRECTION readingDirection);
+    HRESULT (STDMETHODCALLTYPE *SetFlowDirection)(
+        IDWriteTextFormat* This,
+        DWRITE_FLOW_DIRECTION flowDirection);
+    HRESULT (STDMETHODCALLTYPE *SetIncrementalTabStop)(
+        IDWriteTextFormat* This,
+        FLOAT incrementalTabStop);
+    HRESULT (STDMETHODCALLTYPE *SetTrimming)(
+        IDWriteTextFormat* This,
+        const DWRITE_TRIMMING* trimmingOptions,
+        IDWriteInlineObject* trimmingSign);
+    HRESULT (STDMETHODCALLTYPE *SetLineSpacing)(
+        IDWriteTextFormat* This,
+        DWRITE_LINE_SPACING_METHOD lineSpacingMethod,
+        FLOAT lineSpacing,
+        FLOAT baseline);
+    HRESULT (STDMETHODCALLTYPE *GetTextAlignment)(
+        IDWriteTextFormat* This,
+        DWRITE_TEXT_ALIGNMENT* textAlignment);
+    HRESULT (STDMETHODCALLTYPE *GetParagraphAlignment)(
+        IDWriteTextFormat* This,
+        DWRITE_PARAGRAPH_ALIGNMENT* paragraphAlignment);
+    HRESULT (STDMETHODCALLTYPE *GetWordWrapping)(
+        IDWriteTextFormat* This,
+        DWRITE_WORD_WRAPPING* wordWrapping);
+    HRESULT (STDMETHODCALLTYPE *GetReadingDirection)(
+        IDWriteTextFormat* This,
+        DWRITE_READING_DIRECTION* readingDirection);
+    HRESULT (STDMETHODCALLTYPE *GetFlowDirection)(
+        IDWriteTextFormat* This,
+        DWRITE_FLOW_DIRECTION* flowDirection);
+    HRESULT (STDMETHODCALLTYPE *GetIncrementalTabStop)(
+        IDWriteTextFormat* This,
+        FLOAT* incrementalTabStop);
+    HRESULT (STDMETHODCALLTYPE *GetTrimming)(
+        IDWriteTextFormat* This,
+        DWRITE_TRIMMING* trimmingOptions,
+        IDWriteInlineObject** trimmingSign);
+    HRESULT (STDMETHODCALLTYPE *GetLineSpacing)(
+        IDWriteTextFormat* This,
+        DWRITE_LINE_SPACING_METHOD* lineSpacingMethod,
+        FLOAT* lineSpacing,
+        FLOAT* baseline);
+    HRESULT (STDMETHODCALLTYPE *GetFontCollection)(
+        IDWriteTextFormat* This,
+        IDWriteFontCollection** fontCollection);
+    HRESULT (STDMETHODCALLTYPE *GetFontFamilyName)(
+        IDWriteTextFormat* This,
+        WCHAR* fontFamilyName,
+        UINT32 nameSize);
+    DWRITE_FONT_WEIGHT (STDMETHODCALLTYPE *GetFontWeight2)(IDWriteTextFormat* This);
+    DWRITE_FONT_STYLE (STDMETHODCALLTYPE *GetFontStyle2)(IDWriteTextFormat* This);
+    DWRITE_FONT_STRETCH (STDMETHODCALLTYPE *GetFontStretch2)(IDWriteTextFormat* This);
+    FLOAT (STDMETHODCALLTYPE *GetFontSize2)(IDWriteTextFormat* This);
+    HRESULT (STDMETHODCALLTYPE *GetLocaleName2)(
+        IDWriteTextFormat* This,
+        WCHAR* localeName,
+        UINT32 nameSize);
+    // Other methods omitted for brevity
+} IDWriteTextFormatVtbl;
+
+struct IDWriteTextFormat {
+    const IDWriteTextFormatVtbl* lpVtbl;
+};
+
+DEFINE_GUID(IID_IDWriteTextFormat, // {9C906818-31D7-4FD3-A151-7C5E225DB55A}
+0x9C906818, 0x31D7, 0x4FD3, 0xA1, 0x51, 0x7C, 0x5E, 0x22, 0x5D, 0xB5, 0x5A);
+
+// https://learn.microsoft.com/en-us/windows/win32/directwrite/text-formatting-and-layout
+
+typedef struct IDWriteTextLayoutVtbl {
+    // IDWriteTextFormat methods
+    HRESULT (STDMETHODCALLTYPE *QueryInterface)(
+        IDWriteTextLayout* This,
+        REFIID riid,
+        void** ppvObject);
+    ULONG (STDMETHODCALLTYPE *AddRef)(IDWriteTextLayout* This);
+    ULONG (STDMETHODCALLTYPE *Release)(IDWriteTextLayout* This);
+    HRESULT (STDMETHODCALLTYPE *SetTextAlignment)(
+        IDWriteTextLayout* This,
+        DWRITE_TEXT_ALIGNMENT textAlignment);
+    HRESULT (STDMETHODCALLTYPE *SetParagraphAlignment)(
+        IDWriteTextLayout* This,
+        DWRITE_PARAGRAPH_ALIGNMENT paragraphAlignment);
+    HRESULT (STDMETHODCALLTYPE *SetWordWrapping)(
+        IDWriteTextLayout* This,
+        DWRITE_WORD_WRAPPING wordWrapping);
+    HRESULT (STDMETHODCALLTYPE *SetReadingDirection)(
+        IDWriteTextLayout* This,
+        DWRITE_READING_DIRECTION readingDirection);
+    HRESULT (STDMETHODCALLTYPE *SetFlowDirection)(
+        IDWriteTextLayout* This,
+        DWRITE_FLOW_DIRECTION flowDirection);
+    HRESULT (STDMETHODCALLTYPE *SetIncrementalTabStop)(
+        IDWriteTextLayout* This,
+        FLOAT incrementalTabStop);
+    HRESULT (STDMETHODCALLTYPE *SetTrimming)(
+        IDWriteTextLayout* This,
+        const DWRITE_TRIMMING* trimmingOptions,
+        IDWriteInlineObject* trimmingSign);
+    HRESULT (STDMETHODCALLTYPE *SetLineSpacing)(
+        IDWriteTextLayout* This,
+        DWRITE_LINE_SPACING_METHOD lineSpacingMethod,
+        FLOAT lineSpacing,
+        FLOAT baseline);
+    HRESULT (STDMETHODCALLTYPE *GetTextAlignment)(
+        IDWriteTextLayout* This,
+        DWRITE_TEXT_ALIGNMENT* textAlignment);
+    HRESULT (STDMETHODCALLTYPE *GetParagraphAlignment)(
+        IDWriteTextLayout* This,
+        DWRITE_PARAGRAPH_ALIGNMENT* paragraphAlignment);
+    HRESULT (STDMETHODCALLTYPE *GetWordWrapping)(
+        IDWriteTextLayout* This,
+        DWRITE_WORD_WRAPPING* wordWrapping);
+    HRESULT (STDMETHODCALLTYPE *GetReadingDirection)(
+        IDWriteTextLayout* This,
+        DWRITE_READING_DIRECTION* readingDirection);
+    HRESULT (STDMETHODCALLTYPE *GetFlowDirection)(
+        IDWriteTextLayout* This,
+        DWRITE_FLOW_DIRECTION* flowDirection);
+    HRESULT (STDMETHODCALLTYPE *GetIncrementalTabStop)(
+        IDWriteTextLayout* This,
+        FLOAT* incrementalTabStop);
+    HRESULT (STDMETHODCALLTYPE *GetTrimming)(
+        IDWriteTextLayout* This,
+        DWRITE_TRIMMING* trimmingOptions,
+        IDWriteInlineObject** trimmingSign);
+    HRESULT (STDMETHODCALLTYPE *GetLineSpacing)(
+        IDWriteTextLayout* This,
+        DWRITE_LINE_SPACING_METHOD* lineSpacingMethod,
+        FLOAT* lineSpacing,
+        FLOAT* baseline);
+    HRESULT (STDMETHODCALLTYPE *GetFontCollection)(
+        IDWriteTextLayout* This,
+        IDWriteFontCollection** fontCollection);
+    HRESULT (STDMETHODCALLTYPE *GetFontFamilyName)(
+        IDWriteTextLayout* This,
+        WCHAR* fontFamilyName,
+        UINT32 nameSize);
+    DWRITE_FONT_WEIGHT (STDMETHODCALLTYPE *GetFontWeight)(IDWriteTextLayout* This);
+    DWRITE_FONT_STYLE (STDMETHODCALLTYPE *GetFontStyle)(IDWriteTextLayout* This);
+    DWRITE_FONT_STRETCH (STDMETHODCALLTYPE *GetFontStretch)(IDWriteTextLayout* This);
+    FLOAT (STDMETHODCALLTYPE *GetFontSize)(IDWriteTextLayout* This);
+    HRESULT (STDMETHODCALLTYPE *GetLocaleName)(
+        IDWriteTextLayout* This,
+        WCHAR* localeName,
+        UINT32 nameSize);
+    // IDWriteTextLayout methods
+    HRESULT (STDMETHODCALLTYPE *SetMaxWidth)(
+        IDWriteTextLayout* This,
+        FLOAT maxWidth);
+    HRESULT (STDMETHODCALLTYPE *SetMaxHeight)(
+        IDWriteTextLayout* This,
+        FLOAT maxHeight);
+    HRESULT (STDMETHODCALLTYPE *SetFontCollection)(
+        IDWriteTextLayout* This,
+        IDWriteFontCollection* fontCollection,
+        DWRITE_TEXT_RANGE textRange);
+    HRESULT (STDMETHODCALLTYPE *SetFontFamilyName)(
+        IDWriteTextLayout* This,
+        const WCHAR* fontFamilyName,
+        DWRITE_TEXT_RANGE textRange);
+    HRESULT (STDMETHODCALLTYPE *SetFontWeight)(
+        IDWriteTextLayout* This,
+        DWRITE_FONT_WEIGHT fontWeight,
+        DWRITE_TEXT_RANGE textRange);
+    HRESULT (STDMETHODCALLTYPE *SetFontStyle)(
+        IDWriteTextLayout* This,
+        DWRITE_FONT_STYLE fontStyle,
+        DWRITE_TEXT_RANGE textRange);
+    HRESULT (STDMETHODCALLTYPE *SetFontStretch)(
+        IDWriteTextLayout* This,
+        DWRITE_FONT_STRETCH fontStretch,
+        DWRITE_TEXT_RANGE textRange);
+    HRESULT (STDMETHODCALLTYPE *SetFontSize)(
+        IDWriteTextLayout* This,
+        FLOAT fontSize,
+        DWRITE_TEXT_RANGE textRange);
+    HRESULT (STDMETHODCALLTYPE *SetUnderline)(
+        IDWriteTextLayout* This,
+        BOOL hasUnderline,
+        DWRITE_TEXT_RANGE textRange);
+    HRESULT (STDMETHODCALLTYPE *SetStrikethrough)(
+        IDWriteTextLayout* This,
+        BOOL hasStrikethrough,
+        DWRITE_TEXT_RANGE textRange);
+    HRESULT (STDMETHODCALLTYPE *SetDrawingEffect)(
+        IDWriteTextLayout* This,
+        IUnknown* drawingEffect,
+        DWRITE_TEXT_RANGE textRange);
+    HRESULT (STDMETHODCALLTYPE *SetInlineObject)(
+        IDWriteTextLayout* This,
+        IDWriteInlineObject* inlineObject,
+        DWRITE_TEXT_RANGE textRange);
+    HRESULT (STDMETHODCALLTYPE *SetTypography)(
+        IDWriteTextLayout* This,
+        IDWriteTypography* typography,
+        DWRITE_TEXT_RANGE textRange);
+    HRESULT (STDMETHODCALLTYPE *SetLocaleName)(
+        IDWriteTextLayout* This,
+        const WCHAR* localeName,
+        DWRITE_TEXT_RANGE textRange);
+    FLOAT (STDMETHODCALLTYPE *GetMaxWidth)(IDWriteTextLayout* This);
+    FLOAT (STDMETHODCALLTYPE *GetMaxHeight)(IDWriteTextLayout* This);
+    HRESULT (STDMETHODCALLTYPE *GetFontCollection1)(
+        IDWriteTextLayout* This,
+        UINT32 currentPosition,
+        IDWriteFontCollection** fontCollection,
+        DWRITE_TEXT_RANGE* textRange);
+    HRESULT (STDMETHODCALLTYPE *GetFontFamilyNameLength)(
+        IDWriteTextLayout* This,
+        UINT32 currentPosition,
+        UINT32* nameLength,
+        DWRITE_TEXT_RANGE* textRange);
+    HRESULT (STDMETHODCALLTYPE *GetFontFamilyName1)(
+        IDWriteTextLayout* This,
+        UINT32 currentPosition,
+        WCHAR* fontFamilyName,
+        UINT32 nameSize,
+        DWRITE_TEXT_RANGE* textRange);
+    DWRITE_FONT_WEIGHT (STDMETHODCALLTYPE *GetFontWeight1)(
+        IDWriteTextLayout* This,
+        UINT32 currentPosition,
+        DWRITE_TEXT_RANGE* textRange);
+    DWRITE_FONT_STYLE (STDMETHODCALLTYPE *GetFontStyle1)(
+        IDWriteTextLayout* This,
+        UINT32 currentPosition,
+        DWRITE_TEXT_RANGE* textRange);
+    DWRITE_FONT_STRETCH (STDMETHODCALLTYPE *GetFontStretch1)(
+        IDWriteTextLayout* This,
+        UINT32 currentPosition,
+        DWRITE_TEXT_RANGE* textRange);
+    FLOAT (STDMETHODCALLTYPE *GetFontSize1)(
+        IDWriteTextLayout* This,
+        UINT32 currentPosition,
+        DWRITE_TEXT_RANGE* textRange);
+    HRESULT (STDMETHODCALLTYPE *GetUnderline)(
+        IDWriteTextLayout* This,
+        UINT32 currentPosition,
+        BOOL* hasUnderline,
+        DWRITE_TEXT_RANGE* textRange);
+    HRESULT (STDMETHODCALLTYPE *GetStrikethrough)(
+        IDWriteTextLayout* This,
+        UINT32 currentPosition,
+        BOOL* hasStrikethrough,
+        DWRITE_TEXT_RANGE* textRange);
+    HRESULT (STDMETHODCALLTYPE *GetDrawingEffect)(
+        IDWriteTextLayout* This,
+        UINT32 currentPosition,
+        IUnknown** drawingEffect,
+        DWRITE_TEXT_RANGE* textRange);
+    HRESULT (STDMETHODCALLTYPE *GetInlineObject)(
+        IDWriteTextLayout* This,
+        UINT32 currentPosition,
+        IDWriteInlineObject** inlineObject,
+        DWRITE_TEXT_RANGE* textRange);
+    HRESULT (STDMETHODCALLTYPE *GetTypography)(
+        IDWriteTextLayout* This,
+        UINT32 currentPosition,
+        IDWriteTypography** typography,
+        DWRITE_TEXT_RANGE* textRange);
+    HRESULT (STDMETHODCALLTYPE *GetLocaleNameLength)(
+        IDWriteTextLayout* This,
+        UINT32 currentPosition,
+        UINT32* nameLength,
+        DWRITE_TEXT_RANGE* textRange);
+    HRESULT (STDMETHODCALLTYPE *GetLocaleName1)(
+        IDWriteTextLayout* This,
+        UINT32 currentPosition,
+        WCHAR* localeName,
+        UINT32 nameSize,
+        DWRITE_TEXT_RANGE* textRange);
+    HRESULT (STDMETHODCALLTYPE *Draw)(
+        IDWriteTextLayout* This,
+        void* clientDrawingContext,
+        IDWriteTextRenderer* renderer,
+        FLOAT originX,
+        FLOAT originY);
+    HRESULT (STDMETHODCALLTYPE *GetLineMetrics)(
+        IDWriteTextLayout* This,
+        DWRITE_LINE_METRICS* lineMetrics,
+        UINT32 maxLineCount,
+        UINT32* actualLineCount);
+    HRESULT (STDMETHODCALLTYPE *GetMetrics)(
+        IDWriteTextLayout* This,
+        DWRITE_TEXT_METRICS* textMetrics);
+    HRESULT (STDMETHODCALLTYPE *GetOverhangMetrics)(
+        IDWriteTextLayout* This,
+        DWRITE_OVERHANG_METRICS* overhangs);
+    HRESULT (STDMETHODCALLTYPE *GetClusterMetrics)(
+        IDWriteTextLayout* This,
+        DWRITE_CLUSTER_METRICS* clusterMetrics,
+        UINT32 maxClusterCount,
+        UINT32* actualClusterCount);
+    HRESULT (STDMETHODCALLTYPE *DetermineMinWidth)(
+        IDWriteTextLayout* This,
+        FLOAT* minWidth);
+    HRESULT (STDMETHODCALLTYPE *HitTestPoint)(
+        IDWriteTextLayout* This,
+        FLOAT pointX,
+        FLOAT pointY,
+        BOOL* isTrailingHit,
+        BOOL* isInside,
+        DWRITE_HIT_TEST_METRICS* hitTestMetrics);
+    HRESULT (STDMETHODCALLTYPE *HitTestTextPosition)(
+        IDWriteTextLayout* This,
+        UINT32 textPosition,
+        BOOL isTrailingHit,
+        FLOAT* pointX,
+        FLOAT* pointY,
+        DWRITE_HIT_TEST_METRICS* hitTestMetrics);
+    HRESULT (STDMETHODCALLTYPE *HitTestTextRange)(
+        IDWriteTextLayout* This,
+        UINT32 textPosition,
+        UINT32 textLength,
+        FLOAT originX,
+        FLOAT originY,
+        DWRITE_HIT_TEST_METRICS* hitTestMetrics,
+        UINT32 maxHitTestMetricsCount,
+        UINT32* actualHitTestMetricsCount);
+} IDWriteTextLayoutVtbl;
+
+struct IDWriteTextLayout {
+    const IDWriteTextLayoutVtbl* lpVtbl;
+};
+
+DEFINE_GUID(IID_IDWriteTextLayout, // {53737037-6D14-410B-9BFE-0B182BB70961}
+0x53737037, 0x6D14, 0x410B, 0x9B, 0xFE, 0x0B, 0x18, 0x2B, 0xB7, 0x09, 0x61);
+
 
 typedef struct IDWriteFactoryVtbl {
     HRESULT (STDMETHODCALLTYPE *QueryInterface)(
@@ -143,89 +498,6 @@ struct IDWriteFactory { const IDWriteFactoryVtbl* lpVtbl; };
 
 DEFINE_GUID(IID_IDWriteFactory, // {B859EE5A-D838-4B5B-A2E8-1ADC7D93DB48}
 0xB859EE5A, 0xD838, 0x4B5B, 0xA2, 0xE8, 0x1A, 0xDC, 0x7D, 0x93, 0xDB, 0x48);
-
-typedef struct IDWriteTextFormatVtbl {
-    HRESULT (STDMETHODCALLTYPE *QueryInterface)(
-        IDWriteTextFormat* This,
-        REFIID riid,
-        void** ppvObject);
-    ULONG (STDMETHODCALLTYPE *AddRef)(IDWriteTextFormat* This);
-    ULONG (STDMETHODCALLTYPE *Release)(IDWriteTextFormat* This);
-    HRESULT (STDMETHODCALLTYPE *SetTextAlignment)(
-        IDWriteTextFormat* This,
-        DWRITE_TEXT_ALIGNMENT textAlignment);
-    HRESULT (STDMETHODCALLTYPE *SetParagraphAlignment)(
-        IDWriteTextFormat* This,
-        DWRITE_PARAGRAPH_ALIGNMENT paragraphAlignment);
-    HRESULT (STDMETHODCALLTYPE *SetWordWrapping)(
-        IDWriteTextFormat* This,
-        DWRITE_WORD_WRAPPING wordWrapping);
-    HRESULT (STDMETHODCALLTYPE *SetReadingDirection)(
-        IDWriteTextFormat* This,
-        DWRITE_READING_DIRECTION readingDirection);
-    HRESULT (STDMETHODCALLTYPE *SetFlowDirection)(
-        IDWriteTextFormat* This,
-        DWRITE_FLOW_DIRECTION flowDirection);
-    HRESULT (STDMETHODCALLTYPE *SetIncrementalTabStop)(
-        IDWriteTextFormat* This,
-        FLOAT incrementalTabStop);
-    HRESULT (STDMETHODCALLTYPE *SetTrimming)(
-        IDWriteTextFormat* This,
-        const DWRITE_TRIMMING* trimmingOptions,
-        IDWriteInlineObject* trimmingSign);
-    HRESULT (STDMETHODCALLTYPE *SetLineSpacing)(
-        IDWriteTextFormat* This,
-        DWRITE_LINE_SPACING_METHOD lineSpacingMethod,
-        FLOAT lineSpacing,
-        FLOAT baseline);
-    HRESULT (STDMETHODCALLTYPE *GetTextAlignment)(
-        IDWriteTextFormat* This,
-        DWRITE_TEXT_ALIGNMENT* textAlignment);
-    HRESULT (STDMETHODCALLTYPE *GetParagraphAlignment)(
-        IDWriteTextFormat* This,
-        DWRITE_PARAGRAPH_ALIGNMENT* paragraphAlignment);
-    HRESULT (STDMETHODCALLTYPE *GetWordWrapping)(
-        IDWriteTextFormat* This,
-        DWRITE_WORD_WRAPPING* wordWrapping);
-    HRESULT (STDMETHODCALLTYPE *GetReadingDirection)(
-        IDWriteTextFormat* This,
-        DWRITE_READING_DIRECTION* readingDirection);
-    HRESULT (STDMETHODCALLTYPE *GetFlowDirection)(
-        IDWriteTextFormat* This,
-        DWRITE_FLOW_DIRECTION* flowDirection);
-    HRESULT (STDMETHODCALLTYPE *GetIncrementalTabStop)(
-        IDWriteTextFormat* This,
-        FLOAT* incrementalTabStop);
-    HRESULT (STDMETHODCALLTYPE *GetTrimming)(
-        IDWriteTextFormat* This,
-        DWRITE_TRIMMING* trimmingOptions,
-        IDWriteInlineObject** trimmingSign);
-    HRESULT (STDMETHODCALLTYPE *GetLineSpacing)(
-        IDWriteTextFormat* This,
-        DWRITE_LINE_SPACING_METHOD* lineSpacingMethod,
-        FLOAT* lineSpacing,
-        FLOAT* baseline);
-    HRESULT (STDMETHODCALLTYPE *GetFontCollection)(
-        IDWriteTextFormat* This,
-        IDWriteFontCollection** fontCollection);
-    HRESULT (STDMETHODCALLTYPE *GetFontFamilyName)(
-        IDWriteTextFormat* This,
-        WCHAR* fontFamilyName,
-        UINT32 nameSize);
-    DWRITE_FONT_WEIGHT (STDMETHODCALLTYPE *GetFontWeight)(IDWriteTextFormat* This);
-    DWRITE_FONT_STYLE (STDMETHODCALLTYPE *GetFontStyle)(IDWriteTextFormat* This);
-    DWRITE_FONT_STRETCH (STDMETHODCALLTYPE *GetFontStretch)(IDWriteTextFormat* This);
-    FLOAT (STDMETHODCALLTYPE *GetFontSize)(IDWriteTextFormat* This);
-    HRESULT (STDMETHODCALLTYPE *GetLocaleName)(
-        IDWriteTextFormat* This,
-        WCHAR* localeName,
-        UINT32 nameSize);
-    // Other methods omitted for brevity
-} IDWriteTextFormatVtbl;
-
-struct IDWriteTextFormat {
-    const IDWriteTextFormatVtbl* lpVtbl;
-};
 
 #ifndef DIRECT_WRITE_IMPORT
 #define DIRECT_WRITE_IMPORT __declspec(dllimport) WINAPI
