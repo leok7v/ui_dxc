@@ -1,3 +1,4 @@
+#include <float.h>
 #pragma warning(push)
 #pragma warning(disable: 4005) // macro redefinition
 #pragma warning(disable: 4514) // unreferenced inline function
@@ -147,151 +148,6 @@ static inline D2D1_COLOR_F d2d1_color(ui_colorf_t const* color) {
     return *(D2D1_COLOR_F*)color;
 }
 
-static void create_brushes(void) {
-    const D2D1_BRUSH_PROPERTIES* brush_properties = null;
-    D2D1_COLOR_F black  = d2d1_color(&ui_colors.f.black);
-    D2D1_COLOR_F orange = d2d1_color(&ui_colors.f.orange);
-    D2D1_COLOR_F green  = d2d1_color(&ui_colors.f.green);
-    D2D1_COLOR_F red    = d2d1_color(&ui_colors.f.red);
-    D2D1_COLOR_F white  = d2d1_color(&ui_colors.f.white);
-#ifndef DEBUG
-    double t = clock_seconds();
-    for (int i = 0; i < 1000 * 1000; i++) { // min 122ns ~ malloc() time
-        call(render_target, CreateSolidColorBrush, &black,  brush_properties, &brush_black);
-        release(&brush_black);
-    }
-    traceln("CreateSolidColorBrush: %.0fns (nanoseconds)",
-            (clock_seconds() - t) * 1000.0);
-#else
-    (void)clock_seconds(); // unused in debug
-#endif
-    call(render_target, CreateSolidColorBrush, &white,  brush_properties, &brush_white);
-    call(render_target, CreateSolidColorBrush, &black,  brush_properties, &brush_black);
-    call(render_target, CreateSolidColorBrush, &orange, brush_properties, &brush_orange);
-    call(render_target, CreateSolidColorBrush, &green,  brush_properties, &brush_green);
-    call(render_target, CreateSolidColorBrush, &red,    brush_properties, &brush_red);
-#ifndef DEBUG
-    t = clock_seconds();
-    for (int i = 0; i < 1000 * 1000; i++) { // 38ns
-        void_call(brush_black, SetColor, &black);
-    }
-    traceln("CreateSolidColorBrush.SetColor): %.0fns (nanoseconds)",
-            (clock_seconds() - t) * 1000.0);
-#endif
-}
-
-static void create_text_format(void) {
-    float h = (float)abs(ui_app_ncm.lfMessageFont.lfHeight);
-    float pt = (float)px2pt(h);
-//  traceln("MessageFont: %.1fpx %.1fpt %.1fdip %.1fpx",
-//          h, pt, pt2dip(pt), dip2px(pt2dip(pt)));
-#ifndef DEBUG
-    double t = clock_seconds();
-    for (int i = 0; i < 1000 * 1000; i++) { // min 495ns ~ 3 x malloc()
-        call(dwrite_factory, CreateTextFormat, L"Segoe UI", null,
-            DWRITE_FONT_WEIGHT_REGULAR, DWRITE_FONT_STYLE_NORMAL,
-            DWRITE_FONT_STRETCH_NORMAL, (float)pt2dip(pt),
-            L"en-us", &segoe_format);
-        release(&segoe_format);
-    }
-    traceln("CreateTextFormat: %.0fns (nanoseconds)",
-            (clock_seconds() - t) * 1000.0);
-#endif
-    call(dwrite_factory, CreateTextFormat, L"Gabriola", null,
-        DWRITE_FONT_WEIGHT_REGULAR, DWRITE_FONT_STYLE_NORMAL,
-        DWRITE_FONT_STRETCH_NORMAL, pt2dip(48.0f),
-        L"en-us", &text_format);
-    call(dwrite_factory, CreateTextFormat,
-        ui_app_ncm.lfMessageFont.lfFaceName, null,
-        DWRITE_FONT_WEIGHT_REGULAR, DWRITE_FONT_STYLE_NORMAL,
-        DWRITE_FONT_STRETCH_NORMAL, pt2dip(pt),
-        L"en-us", &segoe_format);
-    call(text_format, SetTrimming, &(DWRITE_TRIMMING){
-        .granularity = DWRITE_TRIMMING_GRANULARITY_CHARACTER,
-        .delimiter = 0,
-        .delimiterCount = 0
-    }, null);
-#ifndef DEBUG
-    t = clock_seconds();
-    for (int i = 0; i < 1000 * 1000; i++) { // min 29ns
-        call(text_format, SetWordWrapping, DWRITE_WORD_WRAPPING_NO_WRAP);
-    }
-    traceln("CreateTextFormat.SetWordWrapping(): %.0fns (nanoseconds)",
-            (clock_seconds() - t) * 1000.0);
-#endif
-
-}
-
-static void cleanup_render_target(void) {
-    if (brush_white)   { release(&brush_white); }
-    if (brush_black)   { release(&brush_black); }
-    if (brush_orange)  { release(&brush_orange); }
-    if (brush_green)   { release(&brush_green); }
-    if (brush_red)     { release(&brush_red); }
-    if (text_format)   { release(&text_format); }
-    if (segoe_format)  { release(&segoe_format); }
-    if (d3d_ctx)       { void_call(d3d_ctx, ClearState); }
-    if (render_target) { release(&render_target); }
-}
-
-static void create_render_target(HWND wnd) {
-    RECT rc;
-    GetClientRect(wnd, &rc);
-    if (d2d_factory != null) {
-        update_dpi(wnd);
-        D2D1_RENDER_TARGET_PROPERTIES ps = {
-            .type = D2D1_RENDER_TARGET_TYPE_DEFAULT,
-            .pixelFormat = { DXGI_FORMAT_B8G8R8A8_UNORM,
-                             D2D1_ALPHA_MODE_PREMULTIPLIED },
-            .dpiX = (float)dpi.window,
-            .dpiY = (float)dpi.window,
-            .usage = D2D1_RENDER_TARGET_USAGE_GDI_COMPATIBLE,
-            .minLevel = D2D1_FEATURE_LEVEL_10
-        };
-        call(d2d_factory, CreateDCRenderTarget, &ps, &render_target);
-        create_brushes();
-        create_text_format();
-    }
-}
-
-static void init_d3d(HWND wnd) {
-    IDXGIFactory2* dxgi_factory = null;
-    fif(CreateDXGIFactory1(&IID_IDXGIFactory2, (void**)&dxgi_factory));
-    swear(dxgi_factory != null);
-    call(dxgi_factory, MakeWindowAssociation, wnd, 0);
-    UINT creationFlags = D3D11_CREATE_DEVICE_BGRA_SUPPORT;
-#if defined(_DEBUG)
-    creationFlags |= D3D11_CREATE_DEVICE_DEBUG;
-#endif
-    D3D_FEATURE_LEVEL featureLevels[] = { D3D_FEATURE_LEVEL_11_1 };
-    if (FAILED(D3D11CreateDevice(null, D3D_DRIVER_TYPE_HARDWARE, null,
-               creationFlags, featureLevels, countof(featureLevels),
-               D3D11_SDK_VERSION, &d3d_device, null, &d3d_ctx))) {
-        fif(D3D11CreateDevice(null, D3D_DRIVER_TYPE_WARP, null,
-                              creationFlags, featureLevels, countof(featureLevels),
-                              D3D11_SDK_VERSION, &d3d_device, null, &d3d_ctx));
-    }
-#if defined(_DEBUG)
-    if (d3d_device != null) {
-        call(d3d_device, QueryInterface, &IID_ID3D11Debug, (void**)&d3d_debug);
-    }
-#endif
-    release(&dxgi_factory);
-}
-
-static void init_d2d(void) {
-    D2D1_FACTORY_OPTIONS options = { .debugLevel = D2D1_DEBUG_LEVEL_NONE };
-#if defined(DEBUG) || defined(_DEBUG)
-    options.debugLevel = D2D1_DEBUG_LEVEL_INFORMATION;
-#endif
-    fif(D2D1CreateFactory(D2D1_FACTORY_TYPE_SINGLE_THREADED,
-                          &IID_ID2D1Factory,
-                          &options, (void**)&d2d_factory));
-    fif(DWriteCreateFactory(DWRITE_FACTORY_TYPE_SHARED,
-                            &IID_IDWriteFactory,
-                            (void**)&dwrite_factory));
-}
-
 static D2D1_SIZE_F wh_px2dip(int w, int h) {
     D2D1_SIZE_F size = { .width = px2dip(w), .height = px2dip(h) };
     return size;
@@ -394,6 +250,163 @@ static DWRITE_TEXT_METRICS measure_text(const uint16_t* utf16, int32_t count,
     return tm;
 }
 
+static void create_brushes(void) {
+    const D2D1_BRUSH_PROPERTIES* brush_properties = null;
+    D2D1_COLOR_F black  = d2d1_color(&ui_colors.f.black);
+    D2D1_COLOR_F orange = d2d1_color(&ui_colors.f.orange);
+    D2D1_COLOR_F green  = d2d1_color(&ui_colors.f.green);
+    D2D1_COLOR_F red    = d2d1_color(&ui_colors.f.red);
+    D2D1_COLOR_F white  = d2d1_color(&ui_colors.f.white);
+#ifndef DEBUG
+    // Measured timing: MacBook Air M3 2024 (ARM64) / MacBook Pro 9,1 June 11, 2012 i7-3615QM
+    double t = clock_seconds();
+    for (int i = 0; i < 1000 * 1000; i++) { // min 122ns / 242ns ~ malloc() time
+        call(render_target, CreateSolidColorBrush, &black,  brush_properties, &brush_black);
+        release(&brush_black);
+    }
+    traceln("CreateSolidColorBrush: %.0fns (nanoseconds)",
+            (clock_seconds() - t) * 1000.0);
+#else
+    (void)clock_seconds(); // unused in debug
+#endif
+    call(render_target, CreateSolidColorBrush, &white,  brush_properties, &brush_white);
+    call(render_target, CreateSolidColorBrush, &black,  brush_properties, &brush_black);
+    call(render_target, CreateSolidColorBrush, &orange, brush_properties, &brush_orange);
+    call(render_target, CreateSolidColorBrush, &green,  brush_properties, &brush_green);
+    call(render_target, CreateSolidColorBrush, &red,    brush_properties, &brush_red);
+#ifndef DEBUG
+    // Measured timing: MacBook Air M3 2024 (ARM64) / MacBook Pro 9,1 June 11, 2012 i7-3615QM
+    t = clock_seconds();
+    for (int i = 0; i < 1000 * 1000; i++) { // 38ns / 16ns
+        void_call(brush_black, SetColor, &black);
+    }
+    traceln("CreateSolidColorBrush.SetColor): %.0fns (nanoseconds)",
+            (clock_seconds() - t) * 1000.0);
+#endif
+}
+
+static void create_text_format(void) {
+    float h = (float)abs(ui_app_ncm.lfMessageFont.lfHeight);
+    float pt = (float)px2pt(h);
+    traceln("MessageFont: %.1fpx %.1fpt %.1fdip %.1fpx",
+            h, pt, pt2dip(pt), dip2px(pt2dip(pt)));
+#ifndef DEBUG
+    // Measured timing: MacBook Air M3 2024 (ARM64) / MacBook Pro 9,1 June 11, 2012 i7-3615QM
+    double t = clock_seconds();
+    for (int i = 0; i < 1000 * 1000; i++) { // min 495ns / 1363ns ~ 3 x malloc()
+        call(dwrite_factory, CreateTextFormat, L"Segoe UI", null,
+            DWRITE_FONT_WEIGHT_REGULAR, DWRITE_FONT_STYLE_NORMAL,
+            DWRITE_FONT_STRETCH_NORMAL, (float)pt2dip(pt),
+            L"en-us", &segoe_format);
+        release(&segoe_format);
+    }
+    traceln("CreateTextFormat: %.0fns (nanoseconds)",
+            (clock_seconds() - t) * 1000.0);
+#endif
+    call(dwrite_factory, CreateTextFormat, L"Gabriola", null,
+        DWRITE_FONT_WEIGHT_REGULAR, DWRITE_FONT_STYLE_NORMAL,
+        DWRITE_FONT_STRETCH_NORMAL, pt2dip(48.0f),
+        L"en-us", &text_format);
+    call(dwrite_factory, CreateTextFormat,
+        ui_app_ncm.lfMessageFont.lfFaceName, null,
+        DWRITE_FONT_WEIGHT_REGULAR, DWRITE_FONT_STYLE_NORMAL,
+        DWRITE_FONT_STRETCH_NORMAL, pt2dip(pt),
+        L"en-us", &segoe_format);
+    call(text_format, SetTrimming, &(DWRITE_TRIMMING){
+        .granularity = DWRITE_TRIMMING_GRANULARITY_CHARACTER,
+        .delimiter = 0,
+        .delimiterCount = 0
+    }, null);
+    DWRITE_TEXT_METRICS tm = measure_text(L"Hello World!", 12, text_format, FLT_MAX, FLT_MAX);
+#ifndef DEBUG
+    // Measured timing: MacBook Air M3 2024 (ARM64) / MacBook Pro 9,1 June 11, 2012 i7-3615QM
+    t = clock_seconds();
+    for (int i = 0; i < 1000; i++) { // min ???us / 68us
+        tm = measure_text(L"Hello World!", 12, text_format, FLT_MAX, FLT_MAX);
+    }
+    traceln("CreateTextFormat.CreateTextLayout.GetMetrics(): %.0fus (microseconds)",
+            (clock_seconds() - t) * 1000.0);
+    // single call modifying text_format:
+    t = clock_seconds();
+    for (int i = 0; i < 1000 * 1000; i++) { // min 29ns / 3ns
+        call(text_format, SetWordWrapping, DWRITE_WORD_WRAPPING_NO_WRAP);
+    }
+    traceln("CreateTextFormat.SetWordWrapping(): %.0fns (nanoseconds)",
+            (clock_seconds() - t) * 1000.0);
+#endif
+    (void)tm;
+}
+
+static void cleanup_render_target(void) {
+    if (brush_white)   { release(&brush_white); }
+    if (brush_black)   { release(&brush_black); }
+    if (brush_orange)  { release(&brush_orange); }
+    if (brush_green)   { release(&brush_green); }
+    if (brush_red)     { release(&brush_red); }
+    if (text_format)   { release(&text_format); }
+    if (segoe_format)  { release(&segoe_format); }
+    if (d3d_ctx)       { void_call(d3d_ctx, ClearState); }
+    if (render_target) { release(&render_target); }
+}
+
+static void create_render_target(HWND wnd) {
+    RECT rc;
+    GetClientRect(wnd, &rc);
+    if (d2d_factory != null) {
+        update_dpi(wnd);
+        D2D1_RENDER_TARGET_PROPERTIES ps = {
+            .type = D2D1_RENDER_TARGET_TYPE_DEFAULT,
+            .pixelFormat = { DXGI_FORMAT_B8G8R8A8_UNORM,
+                             D2D1_ALPHA_MODE_PREMULTIPLIED },
+            .dpiX = (float)dpi.window,
+            .dpiY = (float)dpi.window,
+            .usage = D2D1_RENDER_TARGET_USAGE_GDI_COMPATIBLE,
+            .minLevel = D2D1_FEATURE_LEVEL_10
+        };
+        call(d2d_factory, CreateDCRenderTarget, &ps, &render_target);
+        create_brushes();
+        create_text_format();
+    }
+}
+
+static void init_d3d(HWND wnd) {
+    IDXGIFactory2* dxgi_factory = null;
+    fif(CreateDXGIFactory1(&IID_IDXGIFactory2, (void**)&dxgi_factory));
+    swear(dxgi_factory != null);
+    call(dxgi_factory, MakeWindowAssociation, wnd, 0);
+    UINT creationFlags = D3D11_CREATE_DEVICE_BGRA_SUPPORT;
+#if defined(_DEBUG)
+    creationFlags |= D3D11_CREATE_DEVICE_DEBUG;
+#endif
+    D3D_FEATURE_LEVEL featureLevels[] = { D3D_FEATURE_LEVEL_11_1 };
+    if (FAILED(D3D11CreateDevice(null, D3D_DRIVER_TYPE_HARDWARE, null,
+               creationFlags, featureLevels, countof(featureLevels),
+               D3D11_SDK_VERSION, &d3d_device, null, &d3d_ctx))) {
+        fif(D3D11CreateDevice(null, D3D_DRIVER_TYPE_WARP, null,
+                              creationFlags, featureLevels, countof(featureLevels),
+                              D3D11_SDK_VERSION, &d3d_device, null, &d3d_ctx));
+    }
+#if defined(_DEBUG)
+    if (d3d_device != null) {
+        call(d3d_device, QueryInterface, &IID_ID3D11Debug, (void**)&d3d_debug);
+    }
+#endif
+    release(&dxgi_factory);
+}
+
+static void init_d2d(void) {
+    D2D1_FACTORY_OPTIONS options = { .debugLevel = D2D1_DEBUG_LEVEL_NONE };
+#if defined(DEBUG) || defined(_DEBUG)
+    options.debugLevel = D2D1_DEBUG_LEVEL_INFORMATION;
+#endif
+    fif(D2D1CreateFactory(D2D1_FACTORY_TYPE_SINGLE_THREADED,
+                          &IID_ID2D1Factory,
+                          &options, (void**)&d2d_factory));
+    fif(DWriteCreateFactory(DWRITE_FACTORY_TYPE_SHARED,
+                            &IID_IDWriteFactory,
+                            (void**)&dwrite_factory));
+}
+
 static bool render_dx(D2D1_SIZE_F size) {
     void_call(render_target, BeginDraw);
     void_call(render_target, SetTransform, &D2D1_MATRIX_3X2_F_IDENTITY);
@@ -432,6 +445,19 @@ static bool render_dx(D2D1_SIZE_F size) {
               segoe_format, &layout, (ID2D1Brush*)brush_white,
               D2D1_DRAW_TEXT_OPTIONS_ENABLE_COLOR_FONT,
               DWRITE_MEASURING_MODE_NATURAL);
+#ifndef DEBUG
+    // Measured timing: MacBook Air M3 2024 (ARM64) / MacBook Pro 9,1 June 11, 2012 i7-3615QM
+    double t = clock_seconds();
+    for (int i = 0; i < 1000; i++) { // min ???us / 96us
+        void_call(render_target, DrawText,
+                  L"Hello, World!\xD83E\xDDF8 (DirectWrite)", 29,
+                  segoe_format, &layout, (ID2D1Brush*)brush_white,
+                  D2D1_DRAW_TEXT_OPTIONS_ENABLE_COLOR_FONT,
+                  DWRITE_MEASURING_MODE_NATURAL);
+    }
+    traceln("CreateTextFormat.DrawText(): %.0fus (microseconds)",
+            (clock_seconds() - t) * 1000.0);
+#endif
     const D2D1_POINT_2F points[6] = {
         {150.0f, 200.0f},
         {200.0f, 250.0f},
