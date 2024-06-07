@@ -8,6 +8,13 @@ experiments with DirectDraw DirectWrite GDI interop in C
 
 MacBook Air M3 2024, Windows 11, Parallels, main 4K monitor 3870x2516:
 
+* CreateSolidColorBrush: 123ns (nanoseconds)
+* CreateSolidColorBrush.SetColor): 36ns (nanoseconds)
+* CreateTextFormat: 607ns (nanoseconds)
+* CreateTextFormat.CreateTextLayout.GetMetrics(): 23us (microseconds)
+* CreateTextFormat.SetWordWrapping(): 32ns (nanoseconds)
+* CreateTextFormat.DrawText(): 360us (microseconds)
+
 ![GDIvsDirectDraw](https://github.com/leok7v/ui_dxc/assets/1149445/1622eb17-afc1-4342-803f-9ee287e2386f)
 
 MacBook Pro 9,1 June 2012 i7-3615QM, Windows 10 BootCamp, 2K Monitor 2560x1440 
