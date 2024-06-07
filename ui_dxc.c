@@ -258,7 +258,7 @@ static void create_brushes(void) {
     D2D1_COLOR_F red    = d2d1_color(&ui_colors.f.red);
     D2D1_COLOR_F white  = d2d1_color(&ui_colors.f.white);
 #ifndef DEBUG
-    // Measured timing: MacBook Air M3 2024 (ARM64) / MacBook Pro 9,1 June 11, 2012 i7-3615QM
+    // Measured timing: MacBook Air M3 2024 (ARM64) / MacBook Pro 9,1 June 2012 i7-3615QM
     double t = clock_seconds();
     for (int i = 0; i < 1000 * 1000; i++) { // min 122ns / 242ns ~ malloc() time
         call(render_target, CreateSolidColorBrush, &black,  brush_properties, &brush_black);
@@ -275,7 +275,7 @@ static void create_brushes(void) {
     call(render_target, CreateSolidColorBrush, &green,  brush_properties, &brush_green);
     call(render_target, CreateSolidColorBrush, &red,    brush_properties, &brush_red);
 #ifndef DEBUG
-    // Measured timing: MacBook Air M3 2024 (ARM64) / MacBook Pro 9,1 June 11, 2012 i7-3615QM
+    // Measured timing: MacBook Air M3 2024 (ARM64) / MacBook Pro 9,1 June 2012 i7-3615QM
     t = clock_seconds();
     for (int i = 0; i < 1000 * 1000; i++) { // 38ns / 16ns
         void_call(brush_black, SetColor, &black);
@@ -291,7 +291,7 @@ static void create_text_format(void) {
     traceln("MessageFont: %.1fpx %.1fpt %.1fdip %.1fpx",
             h, pt, pt2dip(pt), dip2px(pt2dip(pt)));
 #ifndef DEBUG
-    // Measured timing: MacBook Air M3 2024 (ARM64) / MacBook Pro 9,1 June 11, 2012 i7-3615QM
+    // Measured timing: MacBook Air M3 2024 (ARM64) / MacBook Pro 9,1 June 2012 i7-3615QM
     double t = clock_seconds();
     for (int i = 0; i < 1000 * 1000; i++) { // min 495ns / 1363ns ~ 3 x malloc()
         call(dwrite_factory, CreateTextFormat, L"Segoe UI", null,
@@ -319,7 +319,7 @@ static void create_text_format(void) {
     }, null);
     DWRITE_TEXT_METRICS tm = measure_text(L"Hello World!", 12, text_format, FLT_MAX, FLT_MAX);
 #ifndef DEBUG
-    // Measured timing: MacBook Air M3 2024 (ARM64) / MacBook Pro 9,1 June 11, 2012 i7-3615QM
+    // Measured timing: MacBook Air M3 2024 (ARM64) / MacBook Pro 9,1 June 2012 i7-3615QM
     t = clock_seconds();
     for (int i = 0; i < 1000; i++) { // min ???us / 68us
         tm = measure_text(L"Hello World!", 12, text_format, FLT_MAX, FLT_MAX);
@@ -446,7 +446,7 @@ static bool render_dx(D2D1_SIZE_F size) {
               D2D1_DRAW_TEXT_OPTIONS_ENABLE_COLOR_FONT,
               DWRITE_MEASURING_MODE_NATURAL);
 #ifndef DEBUG
-    // Measured timing: MacBook Air M3 2024 (ARM64) / MacBook Pro 9,1 June 11, 2012 i7-3615QM
+    // Measured timing: MacBook Air M3 2024 (ARM64) / MacBook Pro 9,1 June 2012 i7-3615QM
     double t = clock_seconds();
     for (int i = 0; i < 1000; i++) { // min ???us / 96us
         void_call(render_target, DrawText,
