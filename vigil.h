@@ -76,7 +76,7 @@ static const char* err2str(DWORD error) {
         hr = HRESULT_FROM_WIN32(RtlNtStatusToDosError((NTSTATUS)error));
         flags |= FORMAT_MESSAGE_FROM_HMODULE;
     }
-    DWORD bytes = FormatMessageA(flags, module, error,
+    DWORD bytes = FormatMessageA(flags, module, hr,
                                  language_id, str, countof(str) - 1, null);
     while (bytes > 0 && str[bytes] < 0x20) { bytes--; } // '\r' '\n' '\t' etc
     str[bytes] = 0;
